@@ -1,0 +1,31 @@
+// Calcula el factor de friccion de Darcy (f)
+// para flujo en tuberias.
+EXPORT DarcyFactor()
+BEGIN
+    // Declarar variables locales
+    LOCAL Re, RelRoughness, f_guess, f_new, i, result;
+
+    // Pedir datos de entrada al usuario
+    // El formato de INPUT es {vars}, "Titulo", {"Etiqueta1", "Etiqueta2"}
+    INPUT({Re, RelRoughness}, "Factor de Friccion de Darcy",
+          {"Num. de Reynolds, Re:", "Rugosidad Relativa, e/D:"});
+
+    // --- Regimen Laminar (Re < 2300) ---
+    IF Re < 2300 THEN
+        result := 64 / Re;
+    ELSE
+        // --- Regimen Turbulento (Re >= 2300) ---
+        // Se resuelve la ecuacion de Colebrook-White de forma iterativa.
+        f_guess := ( -1.8 * LOG( (RelRoughness/3.7)^1.11 + 6.9/Re ) ) ^ (-2);
+
+        FOR i FROM 1 TO 20 DO
+            f_new := ( -2 * LOG( RelRoughness/3.7 + 2.51/(Re*√(f_guess)) ) ) ^ (-2);
+            f_guess := f_new;
+        END;
+        result := f_new;
+    END;
+
+    // Mostrar el resultado al usuario y retornarlo
+    PRINT("Factor de Friccion f = " + result);
+    RETURN result;
+END;

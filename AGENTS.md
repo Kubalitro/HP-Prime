@@ -1,99 +1,45 @@
-# Directrices para Agentes de IA sobre el Lenguaje HP PPL
+# Guía Definitiva de Programación Robusta en HP PPL
 
-## Objetivo Principal
+## Reglas de Oro (Principios Fundamentales)
 
-Tu propósito es generar código en HP PPL (HP Prime Programming Language) que sea funcional, limpio y consistente con los ejemplos existentes en este repositorio. **No inventes funciones ni sintaxis**. Basa todo tu conocimiento en los programas que se encuentran en el directorio `/programas`.
+1.  **El Codi Funcional Mana (El Código que Funciona Manda):** La regla más importante. La sintaxis teórica o de otros lenguajes no importa. El único modelo a seguir es la estructura de los programas que sabemos que funcionan en la calculadora (ej. `DarcyFactor`, `SuperConversor_V2`, `Conver_MF`, `BernoulliSolver_V2`).
 
-## Ejemplo de Referencia (Gold Standard)
+2.  **Simplicitat és Fiabilitat (La Simplicidad es Fiabilidad):** La calculadora HP Prime prefiere estructuras de código simples y directas. Las construcciones complejas o "elegantes" de otros lenguajes (como `CASE` con llamadas externas, funciones lambda) son una fuente de errores. Ante la duda, hazlo de la manera más sencilla posible.
 
-El siguiente programa, `Interpolate2D`, es el ejemplo canónico de cómo se debe estructurar y escribir el código. Analízalo con atención.
+3.  **Un Sol Programa per a Tota l'Aplicació (Un Solo Programa para Toda la Aplicación):** Para aplicaciones con menús y múltiples pantallas, el enfoque más seguro es tener todo el código en un único fichero `EXPORT`. Evita llamar a otros programas `EXPORT` desde tu programa principal, ya que puede generar errores de contexto o de sintaxis difíciles de depurar.
 
-```hpp
-// Funció per a interpolació bilineal en una taula
-EXPORT Interpolate2D(input_row, input_col, row_headers, col_headers, data_table)
-BEGIN
-    // Declaración de variables locales al principio
-    LOCAL I;
-    LOCAL R_LOW_IDX, R_HIGH_IDX, C_LOW_IDX, C_HIGH_IDX;
-    LOCAL R_LOW_VAL, R_HIGH_VAL, C_LOW_VAL, C_HIGH_VAL;
-    LOCAL Z_LL, Z_LH, Z_HL, Z_HH;
-    LOCAL TEMP_RESULT_LOW_ROW, TEMP_RESULT_HIGH_ROW;
+## Estructura y Flujo del Programa
 
-    // --- Búsqueda de índices para la fila (Eje Y) ---
-    IF input_row <= row_headers(1) THEN
-        R_LOW_IDX := 1;
-        R_HIGH_IDX := 1;
-    ELSE
-        IF input_row >= row_headers(SIZE(row_headers)) THEN
-            R_LOW_IDX := SIZE(row_headers);
-            R_HIGH_IDX := SIZE(row_headers);
-        ELSE
-            FOR I FROM 1 TO SIZE(row_headers) - 1 DO
-                IF input_row >= row_headers(I) AND input_row <= row_headers(I+1) THEN
-                    R_LOW_IDX := I;
-                    R_HIGH_IDX := I+1;
-                    BREAK;
-                END;
-            END;
-        END;
-    END;
+1.  **Bucle Principal `REPEAT...UNTIL 0;`:** Toda aplicación interactiva debe vivir dentro de un bucle principal. La estructura `REPEAT ... UNTIL 0;` con un `BREAK;` para salir es el patrón canónico y más fiable.
 
-    // --- Búsqueda de índices para la columna (Eje X) ---
-    // (Lógica similar a la búsqueda de filas)
-    IF input_col <= col_headers(1) THEN
-        C_LOW_IDX := 1;
-        C_HIGH_IDX := 1;
-    ELSE
-        IF input_col >= col_headers(SIZE(col_headers)) THEN
-            C_LOW_IDX := SIZE(col_headers);
-            C_HIGH_IDX := SIZE(col_headers);
-        ELSE
-            FOR I FROM 1 TO SIZE(col_headers) - 1 DO
-                IF input_col >= col_headers(I) AND input_col <= col_headers(I+1) THEN
-                    C_LOW_IDX := I;
-                    C_HIGH_IDX := I+1;
-                    BREAK;
-                END;
-            END;
-        END;
-    END;
+2.  **Blocs `IF` en Sèrie per al Menú Principal:** En lugar de un bloque `CASE`, utiliza una serie de `IF opcio_menu == ... THEN ... END;`. Esta estructura es más simple y ha demostrado ser 100% fiable para gestionar la lógica de los menús.
 
-    // --- Interpolación Bilineal ---
-    R_LOW_VAL := row_headers(R_LOW_IDX);
-    R_HIGH_VAL := row_headers(R_HIGH_IDX);
-    C_LOW_VAL := col_headers(C_LOW_IDX);
-    C_HIGH_VAL := col_headers(C_HIGH_IDX);
+3.  **`CONTINUE` per a Reiniciar el Bucle:** Dentro de un submenú o después d'una operación que no requiere mostrar un resultado final (como "Introduir Dades"), usa `CONTINUE;` para volver inmediatamente al inicio del bucle y mostrar de nuevo el menú.
 
-    Z_LL := data_table(R_LOW_IDX, C_LOW_IDX);
-    Z_LH := data_table(R_LOW_IDX, C_HIGH_IDX);
-    Z_HL := data_table(R_HIGH_IDX, C_LOW_IDX);
-    Z_HH := data_table(R_HIGH_IDX, C_HIGH_IDX);
+## Sintaxi i Comandos (Errores Específicos Encontrados)
 
-    IF C_HIGH_VAL == C_LOW_VAL THEN
-        TEMP_RESULT_LOW_ROW := Z_LL;
-        TEMP_RESULT_HIGH_ROW := Z_HL;
-    ELSE
-        TEMP_RESULT_LOW_ROW := Z_LL + (Z_LH - Z_LL) * (input_col - C_LOW_VAL) / (C_HIGH_VAL - C_LOW_VAL);
-        TEMP_RESULT_HIGH_ROW := Z_HL + (Z_HH - Z_HL) * (input_col - C_LOW_VAL) / (C_HIGH_VAL - C_LOW_VAL);
-    END;
+1.  **Límit de `LOCAL`: Màxim 8 Variables per Declaració:** Una única línea `LOCAL` no puede declarar más de 8 variables. Si necesitas más, utiliza múltiples líneas `LOCAL`.
+    *   **Correcto:** `LOCAL a, b, c; LOCAL d, e, f;`
+    *   **Incorrecto:** `LOCAL a, b, c, d, e, f, g, h, i;`
 
-    IF R_HIGH_VAL == R_LOW_VAL THEN
-        RETURN TEMP_RESULT_LOW_ROW;
-    ELSE
-        RETURN TEMP_RESULT_LOW_ROW + (TEMP_RESULT_HIGH_ROW - TEMP_RESULT_LOW_ROW) * (input_row - R_LOW_VAL) / (R_HIGH_VAL - R_LOW_VAL);
-    END;
-END;
-```
+2.  **`SIZE(matriu)` Retorna Files:** La función `SIZE()` solo acepta un argumento. Cuando se aplica a una matriz, retorna el número de filas. No existe `SIZE(matriu, dimensio)`.
+    *   **Correcto:** `FOR I FROM 1 TO SIZE(tasques) DO ...`
+    *   **Incorrecto:** `FOR I FROM 1 TO SIZE(tasques, 1) DO ...`
 
-## Reglas de Sintaxis y Estilo Obligatorias
+3.  **Prohibida la Sintaxi `llista(i)(j)`:** No se puede acceder a elementos de listas anidadas encadenando paréntesis. Se debe hacer en dos pasos.
+    *   **Correcto:** `LOCAL fila := mi_llista(i); LOCAL valor := fila(j);`
+    *   **Incorrecto:** `LOCAL valor := mi_llista(i)(j);`
 
-1.  **Definición de Funciones:** Las funciones que deben ser accesibles desde fuera se declaran con `EXPORT nombre_funcion(parametros)`.
-2.  **Cuerpo del Programa:** El código principal de una función se encuentra entre `BEGIN` y `END;`. **No olvides el punto y coma (;) después de `END`**.
-3.  **Declaración de Variables:** Todas las variables locales **deben** declararse al inicio del bloque `BEGIN` usando la palabra clave `LOCAL`. Ejemplo: `LOCAL mi_var, otra_var;`.
-4.  **Asignación:** Utiliza el operador `:=` para asignar valores a las variables. NO uses `=`.
-5.  **Bloques Condicionales:** La estructura es `IF condicion THEN ... END;` o `IF condicion THEN ... ELSE ... END;`. Todos los bloques (`IF`, `FOR`, etc.) deben terminar con `END;`.
-6.  **Bucles `FOR`:** La sintaxis es `FOR variable FROM inicio TO fin DO ... END;`.
-7.  **Comentarios:** Usa `//` para comentarios de una sola línea.
-8.  **Listas y Matrices:** El acceso a los elementos se hace con paréntesis. Ejemplo: `mi_lista(3)`.
-9.  **Palabras Clave:** Escribe todas las palabras clave del lenguaje (`EXPORT`, `BEGIN`, `END`, `LOCAL`, `IF`, `THEN`, `ELSE`, `FOR`, `DO`, `RETURN`, `BREAK`) en **MAYÚSCULAS** por consistencia.
-10. **Funciones Nativas:** Utiliza únicamente funciones que sepas que existen en el entorno de la HP Prime, como `SIZE()`, `INPUT()`, `CHOOSE()`, `PRINT()`. Consulta los programas de ejemplo si tienes dudas.
+4.  **No Confiar en `SUM()`: Fes la Suma Manualment:** La función `SUM()` puede no ser fiable en el contexto de programación. El método seguro para sumar los elementos de una lista es con un bucle `FOR` y un acumulador.
+    *   **Correcto:** `LOCAL suma := 0; FOR I FROM 1 TO SIZE(llista) DO suma := suma + llista(I); END;`
+    *   **Incorrecto:** `LOCAL suma := SUM(llista);`
+
+5.  **Evitar Caràcters Especials:** En los textos para el usuario (`CHOOSE`, `TEXTOUT_P`, `INPUT`), evita apóstrofos ('), acentos y otros caracteres no ASCII. Utiliza `Organizacio` en lugar de `Organització`, `Calcul` en lloc de `Càlcul`, etc.
+
+## Gestió de Dades i Variables
+
+1.  **Declarar `LOCAL` dins de Cada Bloc Lògic:** Para mantener el código limpio y respetar el límite de 8 variables, declara las variables que un módulo necesita justo al inicio de su bloque `IF`. Esto asegura que solo existen cuando se necesitan.
+
+2.  **Ús de "Flags" per a la Gestió d'Estat:** Un patrón muy potente es utilizar una variable "flag" (p. ej., `datos_introducidos := 0;`) para controlar el estado de la aplicación. Esto permite forzar al usuario a introducir datos antes de poder calcular, evitando errores y mejorando la experiencia.
+
+3.  **No Assignar Llistes a Cel·les de Matrius Numèriques:** Una matriz creada con `MAKEMAT` contiene celdas para números. Intentar asignar una lista (`{1,2,3}`) a una de estas celdas (`tasques(I,9) := {1,2,3}`) causa un error de argumento. Los datos estructurales (como las listas de precedencias) se deben mantener en su lista original y consultarlas desde allí.
