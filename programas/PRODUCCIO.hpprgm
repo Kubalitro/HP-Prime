@@ -1,0 +1,88 @@
+EXPORT PRODUCCIO()
+BEGIN
+  // --- 1. DECLARACIO GLOBAL DE TOTES LES VARIABLES ---
+  LOCAL opcio_menu;
+
+  // Variables per Costos i Inversions
+  LOCAL CF, CV, P, Benefici, P_sub, q0, qB, q_cross;
+  LOCAL cash_flow:={-130,10,40,50,60,70}, i_rate:=10;
+
+  // Variables per Gestio de Projectes
+  LOCAL dades_inicials_proj, tasques, durada_total, cami_critic_str;
+
+  // Variables per Localitzacio
+  LOCAL punts_X:={10,20,60,40,30,50}, punts_Y:={25,10,20,40,20,30};
+  LOCAL pesos_W:={2,4,5,4,3,4};
+
+  // Flags de control
+  LOCAL datos_costos:=0, datos_localitzacio:=0;
+
+  // --- BUCLE PRINCIPAL DE LA SUITE ---
+  REPEAT
+    RECT_P();
+    CHOOSE(opcio_menu, "Suite Organizacio Produccio",
+      "1. Costos i Inversions",
+      "2. Gestio de Projectes (CPM)",
+      "3. Localitzacio de Instalacions",
+      "4. Models de Estocs (EOQ/EPQ)",
+      "Sortir");
+
+    IF opcio_menu == 0 OR opcio_menu == 5 THEN BREAK; END;
+
+    // --- MODUL 1: COSTOS I INVERSIONS ---
+    IF opcio_menu == 1 THEN
+      LOCAL opcio_sub;
+      REPEAT
+        RECT_P();
+        CHOOSE(opcio_sub, "Modul: Costos i Inversions", "1. Calcular Punt de Equilibri", "2. Analitzar Inversio (Cash Flow)", "3. Introduir Dades", "Tornar al menu principal");
+        IF opcio_sub == 0 OR opcio_sub == 4 THEN BREAK; END;
+        IF opcio_sub == 3 THEN IF INPUT({cash_flow, i_rate}, "Dades Inversio", {"Flux Caixa:", "Interes (%):"}, {cash_flow, i_rate}) THEN datos_costos := 1; RECT_P(); TEXTOUT_P("Dades guardades.", 10, 50, 2); WAIT(1.5); END; CONTINUE; END;
+        IF datos_costos == 0 AND opcio_sub == 2 THEN RECT_P(); TEXTOUT_P("Si us plau, introdueixi dades primer (opcio 3).", 10, 50, 2); WAIT(-1); CONTINUE; END;
+        IF opcio_sub == 1 THEN IF NOT INPUT({CF, CV, P}, "Dades Punt de Equilibri", {"Cost Fix:", "Cost Variable:", "Preu Venda:"}) THEN CONTINUE; END; IF P <= CV THEN RECT_P(); TEXTOUT_P("Error: Preu <= Cost Variable", 10, 50, 2); WAIT(-1); CONTINUE; END; q0 := CF / (P - CV); IF INPUT({Benefici}, "Benefici Objectiu", {"Benefici desitjat:"}, {"500"}) THEN qB := (CF + Benefici) / (P - CV); ELSE qB := "N/A"; END; IF INPUT({P_sub}, "Subcontractista", {"Preu compra:"}, {"5.2"}) THEN IF P_sub <= CV THEN q_cross := "Sempre millor fabricar"; ELSE q_cross := CF / (P_sub - CV); END; ELSE q_cross := "N/A"; END; RECT_P(); TEXTOUT_P("Resultats Punt de Equilibri", 10, 20, 2); TEXTOUT_P("a) Punt equilibri: "+ROUND(q0,2)+" u.", 10, 50, 3); TEXTOUT_P("b) Per benefici de "+Benefici+": "+ROUND(qB,2)+" u.", 10, 80, 3); TEXTOUT_P("c) Fabricar > Subcontractar si q > "+q_cross, 10, 110, 3); WAIT(-1); END;
+        IF opcio_sub == 2 THEN LOCAL I, DIM, PR, VAN, MF_acum; IF SIZE(cash_flow) < 2 THEN RECT_P(); TEXTOUT_P("Error: Flux invalid.", 10, 50, 2); WAIT(-1); CONTINUE; END; DIM := ABS(cash_flow(1)); PR := "N/A"; VAN := 0; MF_acum := 0; FOR I FROM 1 TO SIZE(cash_flow) DO VAN := VAN + cash_flow(I) / ((1 + (i_rate/100))^(I - 1)); MF_acum := MF_acum + cash_flow(I); IF MF_acum < 0 AND ABS(MF_acum) > DIM THEN DIM := ABS(MF_acum); END; IF MF_acum >= 0 AND PR == "N/A" THEN PR := (I-2) + ABS(MF_acum - cash_flow(I)) / cash_flow(I); END; END; RECT_P(); TEXTOUT_P("Indicadors de Inversio", 10, 20, 2); TEXTOUT_P("Dimensio (DIM): "+ROUND(DIM, 2), 10, 50, 3); TEXTOUT_P("Payback (PR): "+PR+" anys", 10, 80, 3); TEXTOUT_P("Valor Actual Net (VAN): "+ROUND(VAN, 2), 10, 110, 3); WAIT(-1); END;
+      UNTIL 0;
+    END;
+
+    // --- MODUL 2: GESTIO DE PROJECTES ---
+    IF opcio_menu == 2 THEN
+      LOCAL I, J;
+      dades_inicials_proj := { {1,4,{},{2}},{2,3,{1},{3}},{3,2,{2},{4,5,6,7,8}},{4,7,{3},{16}},{5,2,{3},{9}},{6,10,{3},{10}},{7,5,{3},{11}},{8,15,{3},{12}},{9,5,{5},{13}},{10,6,{6},{13}},{11,10,{7},{14}},{12,2,{8},{15}},{13,3,{9,10},{16}},{14,9,{11},{17}},{15,8,{12},{17}},{16,5,{4,13},{}},{17,2,{14,15},{}} };
+      tasques := MAKEMAT(0,SIZE(dades_inicials_proj),8);
+      FOR I FROM 1 TO SIZE(dades_inicials_proj) DO LOCAL fila_dades := dades_inicials_proj(I); tasques(I,1) := fila_dades(1); tasques(I,2) := fila_dades(2); END;
+      FOR I FROM 1 TO SIZE(tasques) DO LOCAL max_EF_preced:=0; LOCAL fila_actual_dades := dades_inicials_proj(I); LOCAL llista_preced := fila_actual_dades(3); IF SIZE(llista_preced)>0 THEN FOR J FROM 1 TO SIZE(llista_preced) DO LOCAL id_preced:=llista_preced(J); IF tasques(id_preced,4)>max_EF_preced THEN max_EF_preced:=tasques(id_preced,4); END; END; END; tasques(I,3):=max_EF_preced; tasques(I,4):=max_EF_preced+tasques(I,2); END;
+      durada_total:=0; FOR I FROM 1 TO SIZE(tasques) DO IF tasques(I,4)>durada_total THEN durada_total:=tasques(I,4); END; END;
+      FOR I FROM SIZE(tasques) DOWNTO 1 DO LOCAL min_LS_succ:=durada_total; LOCAL fila_actual_dades := dades_inicials_proj(I); LOCAL llista_succ := fila_actual_dades(4); IF SIZE(llista_succ)>0 THEN FOR J FROM 1 TO SIZE(llista_succ) DO LOCAL id_succ:=llista_succ(J); IF tasques(id_succ,5)<min_LS_succ THEN min_LS_succ:=tasques(id_succ,5); END; END; END; tasques(I,6):=min_LS_succ; tasques(I,5):=min_LS_succ-tasques(I,2); END;
+      cami_critic_str:=""; FOR I FROM 1 TO SIZE(tasques) DO tasques(I,7):=tasques(I,5)-tasques(I,3); IF tasques(I,7)==0 THEN tasques(I,8):=1; cami_critic_str:=cami_critic_str+CHAR(64+I)+" "; ELSE tasques(I,8):=0; END; END;
+      RECT_P(); TEXTOUT_P("Resultats del Projecte (CPM)",10,10,2); TEXTOUT_P("Durada Total: "+durada_total+" dies",10,30,3); TEXTOUT_P("Cami Critic: "+cami_critic_str,10,50,3); TEXTOUT_P("Tasca|Dur|ES|EF|LS|LF|Marge",10,75,3); TEXTOUT_P("---------------------------------",10,85,3);
+      FOR I FROM 1 TO SIZE(tasques) DO LOCAL linia_txt:=CHAR(64+I)+"|"+tasques(I,2)+"|"+tasques(I,3)+"|"+tasques(I,4)+"|"+tasques(I,5)+"|"+tasques(I,6)+"|"+tasques(I,7); IF tasques(I,8)==1 THEN linia_txt:=linia_txt+" (CRITIC)"; END; TEXTOUT_P(linia_txt,10,90+I*12,4); END;
+      WAIT(-1);
+    END;
+
+    // --- MODUL 3: LOCALITZACIO ---
+    IF opcio_menu == 3 THEN
+      LOCAL opcio_sub;
+      REPEAT
+        RECT_P();
+        CHOOSE(opcio_sub, "Modul: Localitzacio", "1. Calcular Localitzacio Optima", "2. Introduir/Veure Dades", "Tornar");
+        IF opcio_sub == 0 OR opcio_sub == 3 THEN BREAK; END;
+        IF opcio_sub == 2 THEN IF INPUT({punts_X,punts_Y,pesos_W},"Dades Localitzacio",{"Coords X:", "Coords Y:", "Pesos W:"},{punts_X,punts_Y,pesos_W}) THEN IF SIZE(punts_X)!=SIZE(punts_Y) OR SIZE(punts_X)!=SIZE(pesos_W) THEN RECT_P(); TEXTOUT_P("Error: Llistes de mida diferent.",10,50,2); WAIT(-1); ELSE datos_localitzacio:=1; RECT_P(); TEXTOUT_P("Dades guardades.",10,50,2); WAIT(1.5); END; END; CONTINUE; END;
+        IF opcio_sub == 1 THEN IF datos_localitzacio == 0 THEN RECT_P(); TEXTOUT_P("Si us plau, introdueixi dades primer (opcio 2).", 10, 50, 2); WAIT(-1); CONTINUE; END; LOCAL opcio_calc; CHOOSE(opcio_calc, "Quin metode de calcul?", "1. Distancia Quadratica", "2. Distancia Rectangular"); IF opcio_calc == 0 THEN CONTINUE; END; IF opcio_calc == 1 THEN LOCAL sum_WX:=0, sum_WY:=0, sum_W:=0, I, optim_X, optim_Y; FOR I FROM 1 TO SIZE(punts_X) DO sum_WX:=sum_WX+pesos_W(I)*punts_X(I); sum_WY:=sum_WY+pesos_W(I)*punts_Y(I); sum_W:=sum_W+pesos_W(I); END; IF sum_W==0 THEN RECT_P(); TEXTOUT_P("Error: Suma de pesos es zero.",10,50,2); WAIT(-1); CONTINUE; END; optim_X:=sum_WX/sum_W; optim_Y:=sum_WY/sum_W; RECT_P(); TEXTOUT_P("Localitzacio Optima (Quadratica)",10,20,2); TEXTOUT_P("Centre de Gravetat:",10,50,3); TEXTOUT_P("X*="+ROUND(optim_X,3)+" Y*="+ROUND(optim_Y,3),10,80,1); WAIT(-1); END; IF opcio_calc == 2 THEN LOCAL meitat_pes, acum_pes, n_pts, mat_temp, temp, I, J; LOCAL optim_X, optim_Y, suma_pesos; suma_pesos := 0; FOR I FROM 1 TO SIZE(pesos_W) DO suma_pesos := suma_pesos + pesos_W(I); END; n_pts:=SIZE(punts_X); meitat_pes:=suma_pesos/2; mat_temp:=MAKEMAT(0,n_pts,2); FOR I FROM 1 TO n_pts DO mat_temp(I,1):=punts_X(I); mat_temp(I,2):=pesos_W(I); END; FOR I FROM 1 TO n_pts-1 DO FOR J FROM 1 TO n_pts-I DO IF mat_temp(J,1)>mat_temp(J+1,1) THEN temp:=mat_temp(J,1); mat_temp(J,1):=mat_temp(J+1,1); mat_temp(J+1,1):=temp; temp:=mat_temp(J,2); mat_temp(J,2):=mat_temp(J+1,2); mat_temp(J+1,2):=temp; END; END; END; acum_pes:=0; FOR I FROM 1 TO n_pts DO acum_pes:=acum_pes+mat_temp(I,2); IF acum_pes>=meitat_pes THEN optim_X:=mat_temp(I,1); BREAK; END; END; FOR I FROM 1 TO n_pts DO mat_temp(I,1):=punts_Y(I); mat_temp(I,2):=pesos_W(I); END; FOR I FROM 1 TO n_pts-1 DO FOR J FROM 1 TO n_pts-I DO IF mat_temp(J,1)>mat_temp(J+1,1) THEN temp:=mat_temp(J,1); mat_temp(J,1):=mat_temp(J+1,1); mat_temp(J+1,1):=temp; temp:=mat_temp(J,2); mat_temp(J,2):=mat_temp(J+1,2); mat_temp(J+1,2):=temp; END; END; END; acum_pes:=0; FOR I FROM 1 TO n_pts DO acum_pes:=acum_pes+mat_temp(I,2); IF acum_pes>=meitat_pes THEN optim_Y:=mat_temp(I,1); BREAK; END; END; RECT_P(); TEXTOUT_P("Localitzacio Optima (Rectangular)",10,20,2); TEXTOUT_P("Metode de la Mediana:",10,50,3); TEXTOUT_P("X*="+optim_X+" Y*="+optim_Y,10,80,1); WAIT(-1); END; END;
+      UNTIL 0;
+    END;
+
+    // --- MODUL 4: MODELS DE ESTOCS ---
+    IF opcio_menu == 4 THEN
+      LOCAL opcio_sub;
+      REPEAT
+        RECT_P();
+        CHOOSE(opcio_sub, "Modul: Models de Estocs", "1. Model EOQ (Compra)", "2. Model EPQ (Produccio)", "Tornar");
+        IF opcio_sub == 0 OR opcio_sub == 3 THEN BREAK; END;
+        IF opcio_sub == 1 THEN LOCAL D, CL, CA, i, CS; LOCAL Q_opt, K_Q, N, T, mida_lot, Q_final; IF NOT INPUT({D, CL, CA, i}, "Dades Model EOQ", {"Demanda Anual (D):", "Cost Llançament (CL):", "Cost Adquisicio (CA):", "Taxa possessio anual i (%):"}) THEN CONTINUE; END; CS := CA * (i/100); IF CS <= 0 THEN RECT_P(); TEXTOUT_P("Error: Cost possessio > 0.", 10, 50, 2); WAIT(-1); CONTINUE; END; Q_opt := √(2*D*CL/CS); Q_final := ROUND(Q_opt, 0); IF INPUT({mida_lot}, "Arrodoniment a Lots", {"Mida del lot de compra (0 si no aplica):"}, {0}) THEN IF mida_lot > 0 THEN LOCAL Q_inf := FLOOR(Q_opt / mida_lot) * mida_lot; LOCAL Q_sup := CEILING(Q_opt / mida_lot) * mida_lot; IF Q_inf == 0 THEN Q_inf := mida_lot; END; LOCAL K_inf := (D/Q_inf)*CL + (Q_inf/2)*CS; LOCAL K_sup := (D/Q_sup)*CL + (Q_sup/2)*CS; IF K_inf <= K_sup THEN Q_final := Q_inf; ELSE Q_final := Q_sup; END; END; END; K_Q := (D/Q_final)*CL + (Q_final/2)*CS; N := D / Q_final; T := Q_final / D; RECT_P(); TEXTOUT_P("Resultats Model EOQ", 10, 20, 2); TEXTOUT_P("Lot Optim (Q*): "+Q_final+" unitats", 10, 50, 3); TEXTOUT_P("Cost Total K(Q*): "+ROUND(K_Q,2), 10, 80, 3); TEXTOUT_P("Comandes/any (N): "+ROUND(N,3), 10, 110, 3); TEXTOUT_P("Temps entre comandes (T): "+ROUND(T,3)+" anys", 10, 140, 3); WAIT(-1); END;
+        IF opcio_sub == 2 THEN LOCAL D, P, CL, CS, Q_opt, K_Q; IF NOT INPUT({D, P, CL, CS}, "Dades Model EPQ", {"Demanda Anual (D):", "Taxa Produccio Anual (P):", "Cost Llançament (CL):", "Cost Possessio (CS):"}) THEN CONTINUE; END; IF D >= P THEN RECT_P(); TEXTOUT_P("Error: Demanda (D) < Produccio (P).", 10, 50, 2); WAIT(-1); CONTINUE; END; IF CS <= 0 THEN RECT_P(); TEXTOUT_P("Error: Cost possessio > 0.", 10, 50, 2); WAIT(-1); CONTINUE; END; Q_opt := √( (2*D*CL) / (CS*(1-(D/P))) ); K_Q := (D/Q_opt)*CL + (Q_opt/2)*CS*(1-(D/P)); RECT_P(); TEXTOUT_P("Resultats Model EPQ", 10, 20, 2); TEXTOUT_P("Lot Prod. Optim (Q*): "+ROUND(Q_opt,0)+" u.", 10, 50, 3); TEXTOUT_P("Cost Total K(Q*): "+ROUND(K_Q,2), 10, 80, 3); WAIT(-1); END;
+      UNTIL 0;
+    END;
+
+  UNTIL 0;
+
+  RECT_P();
+END;
